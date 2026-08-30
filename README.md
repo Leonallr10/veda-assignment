@@ -97,8 +97,110 @@ Scout is used for the **live URL** and default dev. Legacy local Qwen is opt-in 
 - `ml/` — Colab train + local serve  
 - `components/*` — Upload, ProgressStepper, QuestionList, AnswerSheetViewer, GradingSummary  
 
-## Sample Input and Output 
-<img width="1527" height="905" alt="Image" src="https://github.com/user-attachments/assets/df2e13fa-2cce-4368-b105-07038214fdee" />
-inputs : test\answer.pdf, test\question.pdf
+## Sample Input and Output
 
+### Sample input
+
+Use the bundled fixture PDFs to try the full pipeline locally:
+
+| File | Path | Description |
+|------|------|-------------|
+| Question paper | [`test/question.pdf`](test/question.pdf) | 15 questions with sub-parts (`1(a)`, `3(b)`, `10(a)`, …) |
+| Answer sheet | [`test/answer.pdf`](test/answer.pdf) | Handwritten student responses (11 answered, 4 unanswered) |
+
+**How to run**
+
+1. Start the app (`pnpm dev`) and open [http://localhost:3000](http://localhost:3000).
+2. Upload `test/question.pdf` as **Question Paper** and `test/answer.pdf` as **Answer Sheet**.
+3. Click **Process** — the app rasterizes each PDF, then runs extract → validate → map → grade.
+
+Accepted formats: `.pdf`, `.png`, `.jpg`, `.jpeg`.
+
+### Sample output (UI)
+
+After processing, the results screen shows:
+
+- **Left** — extracted question list with match status (matched / unanswered).
+- **Right** — answer-sheet viewer; clicking a question highlights its bbox on the sheet.
+- **Bottom** — grading summary with per-question score and feedback.
+
+<img width="1527" height="905" alt="Mapping screen: question list, answer-sheet highlight, and grading summary" src="https://github.com/user-attachments/assets/df2e13fa-2cce-4368-b105-07038214fdee" />
+
+### Sample output (API)
+
+Abbreviated responses from the fixture run (values vary slightly by model run):
+
+**1. Extract** — `POST /api/extract` (one page, `role: "answer"`)
+
+```json
+{
+  "via": "hf",
+  "blocks": [
+    {
+      "id": "a-0-1",
+      "pageIndex": 0,
+      "labelNumber": "1(a)",
+      "text": "f(x) = 2x - 5, g(x) = x² + 1, find g(f(3)) …",
+      "contentKind": "numerical",
+      "bbox": { "x": 0.08, "y": 0.12, "w": 0.84, "h": 0.18 },
+      "bboxSource": "qwen"
+    }
+  ]
+}
+```
+
+**2. Map** — `POST /api/map-answers`
+
+```json
+{
+  "pairs": [
+    {
+      "id": "pair-1a",
+      "status": "matched",
+      "question": { "labelNumber": "1(a)", "text": "Find g(f(3)) …" },
+      "answer": { "labelNumber": "1(a)", "text": "g(f(3)) = 2", "bbox": { "x": 0.08, "y": 0.12, "w": 0.84, "h": 0.18 } },
+      "similarity": 1
+    },
+    {
+      "id": "pair-2",
+      "status": "unanswered",
+      "question": { "labelNumber": "2", "text": "Draw and label a plant cell …" },
+      "answer": null
+    }
+  ]
+}
+```
+
+Expected gold pairs for this fixture: [`ml/fixtures/expected-pairs.json`](ml/fixtures/expected-pairs.json) (11 matched, 4 unanswered).
+
+**3. Grade** — `POST /api/grade`
+
+```json
+{
+  "summary": {
+    "totalScore": 19,
+    "maxScore": 30,
+    "answered": 11,
+    "unanswered": 4,
+    "unmatched": 0,
+    "overallFeedback": "Strong work on algebra and GK; review unanswered diagram questions.",
+    "grades": [
+      { "pairId": "pair-1a", "score": 2, "maxScore": 2, "isCorrect": true, "feedback": "Correct substitution." },
+      { "pairId": "pair-2", "score": 0, "maxScore": 2, "isCorrect": false, "feedback": "Unanswered." }
+    ]
+  }
+}
+```
+
+### What to expect with the fixture
+
+| Metric | Expected |
+|--------|----------|
+| Questions extracted | 15 (with sub-parts) |
+| Answers extracted | ~11 labeled blocks |
+| Matched pairs | 11 (`1(a)`–`10(b)` subset — see fixtures) |
+| Unanswered | `2`, `5`, `6(a)`, `6(b)` |
+| Highlight on click | Matched answers show a bbox overlay on the answer sheet |
+
+Reproduce metrics locally: `pnpm recheck` → `pnpm score` (requires `pnpm dev` running).
 
