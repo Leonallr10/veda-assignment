@@ -96,3 +96,9 @@ Scout is used for the **live URL** and default dev. Legacy local Qwen is opt-in 
 - `lib/eval/*` — per-stage evaluation  
 - `ml/` — Colab train + local serve  
 - `components/*` — Upload, ProgressStepper, QuestionList, AnswerSheetViewer, GradingSummary  
+
+## Sample Input and Output 
+<img width="1527" height="905" alt="Image" src="https://github.com/user-attachments/assets/df2e13fa-2cce-4368-b105-07038214fdee" />
+inputs : test\answer.pdf, test\question.pdf
+
+
